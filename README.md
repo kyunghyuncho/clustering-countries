@@ -17,13 +17,16 @@ An interactive Streamlit web application that clusters the world's countries bas
 Below are previews of the interactive Streamlit dashboard mapping clustered nations based on live data:
 
 ![K-Means Clustering Distribution Overview](./screenshots/Screenshot%202026-03-03%20at%2014.52.18.png)
-*Fig 1: K-Means Clustering grouping countries globally into 5 distinct macro-economic zones.*
+*Fig 1: K-Means Clustering grouping countries globally into 8 distinct macro-economic zones using indices like Homicide rate, Unemployment, Inflation, and Gini.*
 
-![Hovering over a Country Data Point](./screenshots/Screenshot%202026-03-03%20at%2014.52.28.png)
-*Fig 2: Hovering over the choropleth map reveals the exact underlying metrics and cluster assignments for specific nations.*
+![Uniform GMM Clustering Model K=8](./screenshots/Screenshot%202026-03-03%20at%2014.52.28.png)
+*Fig 2: Running the custom Gaussian Mixture Model (Uniform Prior) algorithm for K=8 clusters and dynamically rendering probabilistic fits (AIC/BIC scores).*
 
-![Uniform GMM Clustering Model](./screenshots/Screenshot%202026-03-03%20at%2014.52.50.png)
-*Fig 3: Running the custom Gaussian Mixture Model (Uniform Prior) algorithms and dynamically rendering probabilistic fits (AIC/BIC scores).*
+![K-Means Clustering K=5](./screenshots/Screenshot%202026-03-03%20at%2014.52.50.png)
+*Fig 3: K-Means Clustering grouping countries globally into 5 distinct zones based on GDP, Unemployment, and Inflation.*
+
+![Uniform GMM Clustering Model K=5](./screenshots/Screenshot%202026-03-03%20at%2014.52.52.png)
+*Fig 4: Uniform GMM Clustering evaluating 5 specific components across core economic indicators, displaying AIC/BIC scores.*
 
 ## Evaluated Indicators
 
