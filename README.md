@@ -12,6 +12,19 @@ An interactive Streamlit web application that clusters the world's countries bas
 *   **Interactive Visualizations:** Renders robust, interactive Plotly choropleth maps, displaying country assignments and underlying metrics on hover.
 *   **Real-time Metrics:** Calculates and displays evaluation metrics dynamically, including Silhouette Score, Akaike Information Criterion (AIC), and Bayesian Information Criterion (BIC).
 
+## Application Previews
+
+Below are previews of the interactive Streamlit dashboard mapping clustered nations based on live data:
+
+![K-Means Clustering Distribution Overview](./screenshots/Screenshot%202026-03-03%20at%2014.52.18.png)
+*Fig 1: K-Means Clustering grouping countries globally into 5 distinct macro-economic zones.*
+
+![Hovering over a Country Data Point](./screenshots/Screenshot%202026-03-03%20at%2014.52.28.png)
+*Fig 2: Hovering over the choropleth map reveals the exact underlying metrics and cluster assignments for specific nations.*
+
+![Uniform GMM Clustering Model](./screenshots/Screenshot%202026-03-03%20at%2014.52.50.png)
+*Fig 3: Running the custom Gaussian Mixture Model (Uniform Prior) algorithms and dynamically rendering probabilistic fits (AIC/BIC scores).*
+
 ## Evaluated Indicators
 
 The application clusters economies based on the following World Bank API metrics:
