@@ -13,10 +13,15 @@ INDICATORS = {
     'SP.POP.GROW': 'Population growth',
     'SL.UEM.TOTL.ZS': 'Unemployment',
     'FP.CPI.TOTL.ZG': 'Inflation',
-    'IT.NET.USER.ZS': 'Internet users (%)'
+    'IT.NET.USER.ZS': 'Internet users (%)',
+    'SI.POV.GINI': 'Gini index (Inequality)',
+    'MS.MIL.XPND.GD.ZS': 'Military exp. (% of GDP)',
+    'VC.IHR.PSRC.P5': 'Homicide rate (per 100k)',
+    'SG.GEN.PARL.ZS': 'Women in parliament (%)',
+    'EG.USE.PCAP.KG.OE': 'Energy use per capita'
 }
 
-SKEWED_FEATURES = ['GDP per capita', 'Population density']
+SKEWED_FEATURES = ['GDP per capita', 'Population density', 'Gini index (Inequality)', 'Homicide rate (per 100k)', 'Energy use per capita']
 
 @st.cache_data(show_spinner="Fetching indicator data from World Bank API...")
 def load_data():

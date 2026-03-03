@@ -23,6 +23,11 @@ The application clusters economies based on the following World Bank API metrics
 *   Unemployment, total (% of total labor force)
 *   Inflation, consumer prices (Annual %)
 *   Individuals using the Internet (% of population)
+*   Gini index (Inequality)
+*   Military expenditure (% of GDP)
+*   Intentional homicides (per 100,000 people)
+*   Proportion of seats held by women in national parliaments (%)
+*   Energy use (kg of oil equivalent per capita)
 
 *Note: The script queries the past 10 years of data and cleverly backfills to handle null values, ensuring maximum global coverage without dropping sparse nations.*
 
