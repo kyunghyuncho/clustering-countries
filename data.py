@@ -23,7 +23,7 @@ INDICATORS = {
 
 SKEWED_FEATURES = ['GDP per capita', 'Population density', 'Gini index (Inequality)', 'Homicide rate (per 100k)', 'Energy use per capita']
 
-@st.cache_data(show_spinner="Fetching historical indicator data from World Bank API...")
+@st.cache_data(show_spinner="Fetching historical indicator data from World Bank API...", persist="disk")
 def load_data():
     """
     Fetches the historical indicator data (from 2010 to 2023) using wbgapi.
