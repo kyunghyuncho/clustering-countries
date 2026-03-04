@@ -23,36 +23,41 @@ INDICATORS = {
 
 SKEWED_FEATURES = ['GDP per capita', 'Population density', 'Gini index (Inequality)', 'Homicide rate (per 100k)', 'Energy use per capita']
 
-@st.cache_data(show_spinner="Fetching indicator data from World Bank API...")
+@st.cache_data(show_spinner="Fetching historical indicator data from World Bank API...")
 def load_data():
     """
-    Fetches the latest available indicator data using wbgapi and format as dataframe.
+    Fetches the historical indicator data (from 2010 to 2023) using wbgapi.
+    Returns a longitudinal DataFrame containing metrics for each country per year.
     """
     indicators_list = list(INDICATORS.keys())
     
-    # Fetch the last 10 years of data to maximize coverage
-    df = wb.data.DataFrame(indicators_list, mrv=10)
+    # Fetch historical data from 2010 to 2023
+    df = wb.data.DataFrame(indicators_list, time=range(2010, 2024))
     
-    # Backfill missing values along the rows, then select the most recent (first) column
-    recent_values = df.bfill(axis=1).iloc[:, 0]
-    recent_values.name = 'value'
+    # Reset index (which is currently a MultiIndex of economy, series)
+    df = df.reset_index()
     
-    df_recent = recent_values.reset_index()
-
-    # Get iso3 country codes and country names to filter out aggregates (regions, etc.)
+    # Melt the dataframe from wide to long format
+    df_long = pd.melt(df, id_vars=['economy', 'series'], var_name='year', value_name='value')
+    
+    # Clean up the 'year' column (e.g., from 'YR2010' to 2010)
+    df_long['year'] = df_long['year'].str.replace('YR', '').astype(int)
+    
+    # Get economies metadata to filter real countries and attach full names
     economies = wb.economy.DataFrame()
     countries = economies[economies['aggregate'] == False]
     country_codes = countries.index.tolist()
     
-    df_recent = df_recent[df_recent['economy'].isin(country_codes)]
+    # Filter out regions, keeping only actual countries
+    df_long = df_long[df_long['economy'].isin(country_codes)]
     
-    # Pivot to make rows countries and columns indicators
-    df_pivoted = df_recent.pivot(index='economy', columns='series', values='value')
-    # Rename columns to human readable names
+    # Pivot to make rows unique per (economy, year) and columns the indicators
+    df_pivoted = df_long.pivot(index=['economy', 'year'], columns='series', values='value')
     df_pivoted.rename(columns=INDICATORS, inplace=True)
     
-    # Merge country names into the dataframe
-    df_pivoted = df_pivoted.merge(countries[['name']], left_index=True, right_index=True)
+    # Flatten the index and merge Country Name
+    df_pivoted = df_pivoted.reset_index()
+    df_pivoted = df_pivoted.merge(countries[['name']], left_on='economy', right_index=True)
     df_pivoted.rename(columns={'name': 'Country Name'}, inplace=True)
     
     return df_pivoted
@@ -60,33 +65,47 @@ def load_data():
 
 def preprocess_data(df, selected_features=None, k_neighbors=5):
     """
-    Impute, log transform, and scale data based on selected features.
+    Impute, log transform, and scale data on a per-year basis.
+    Processes data year-by-year to prevent cross-year leakage and ensure scaling is relative to the specific year.
     """
     if selected_features is None:
-        selected_features = [col for col in df.columns if col != 'Country Name']
+        selected_features = [col for col in df.columns if col not in ['Country Name', 'economy', 'year']]
         
-    df_selected = df[selected_features].copy()
+    scaled_dfs = []
+    imputed_dfs = []
     
-    # Imputation using KNN
-    imputer = KNNImputer(n_neighbors=k_neighbors)
-    imputed_values = imputer.fit_transform(df_selected)
-    df_imputed = pd.DataFrame(imputed_values, index=df_selected.index, columns=df_selected.columns)
+    # We group by year and process cross-sectional data strictly within that year
+    for year, group in df.groupby('year'):
+        df_year = group.set_index('Country Name')
+        df_selected = df_year[selected_features].copy()
+        
+        # Imputation using KNN
+        imputer = KNNImputer(n_neighbors=k_neighbors)
+        # If a year's data is extremely sparse for some feature, KNN will still impute based on neighboring features
+        imputed_values = imputer.fit_transform(df_selected)
+        df_imputed_yr = pd.DataFrame(imputed_values, index=df_selected.index, columns=df_selected.columns)
+        
+        # Log-Transform skewed features
+        for col in df_imputed_yr.columns:
+            if col in SKEWED_FEATURES and col in selected_features:
+                df_imputed_yr[col] = np.log1p(np.maximum(df_imputed_yr[col], 0))
+                
+        # Standardization
+        scaler = StandardScaler()
+        scaled_values = scaler.fit_transform(df_imputed_yr)
+        df_scaled_yr = pd.DataFrame(scaled_values, index=df_imputed_yr.index, columns=df_imputed_yr.columns)
+        
+        # Re-attach metadata
+        df_imputed_yr['year'] = year
+        df_imputed_yr['economy'] = df_year['economy']
+        
+        df_scaled_yr['year'] = year
+        df_scaled_yr['economy'] = df_year['economy']
+        
+        scaled_dfs.append(df_scaled_yr.reset_index())
+        imputed_dfs.append(df_imputed_yr.reset_index())
+        
+    df_scaled_all = pd.concat(scaled_dfs, ignore_index=True)
+    df_imputed_all = pd.concat(imputed_dfs, ignore_index=True)
     
-    # Feature Transformation & Scaling
-    # Log-Transform skewed features
-    for col in df_imputed.columns:
-        if col in SKEWED_FEATURES:
-            # We want to log-transform, but only positive values. 
-            # In our data, GDP and Pop Density are practically positive, but let's be safe:
-            df_imputed[col] = np.log1p(np.maximum(df_imputed[col], 0))
-            
-    # Standardization
-    scaler = StandardScaler()
-    scaled_values = scaler.fit_transform(df_imputed)
-    df_scaled = pd.DataFrame(scaled_values, index=df_imputed.index, columns=df_imputed.columns)
-    
-    # Attach 'Country Name' back for the results dataframe
-    if 'Country Name' in df.columns:
-        df_imputed['Country Name'] = df['Country Name']
-    
-    return df_scaled, df_imputed, scaler
+    return df_scaled_all, df_imputed_all

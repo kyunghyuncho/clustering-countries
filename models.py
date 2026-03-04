@@ -2,6 +2,8 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.mixture import GaussianMixture
 from sklearn.metrics import silhouette_score
+from scipy.optimize import linear_sum_assignment
+from scipy.spatial.distance import cdist
 
 def run_kmeans(X, n_clusters, random_state=42):
     """
@@ -61,3 +63,21 @@ def run_gmm(X, n_components, covariance_type='full', random_state=42):
         sil_score = None
         
     return model, labels, sil_score, aic, bic
+
+
+def align_clusters(old_centroids, new_centroids):
+    """
+    Aligns new cluster labels to old cluster labels using the Hungarian algorithm
+    based on the Euclidean distance between their centroids.
+    
+    Returns a dictionary mapping {new_label_index: old_label_index}.
+    """
+    # Compute cross-distance matrix (cost matrix)
+    cost_matrix = cdist(new_centroids, old_centroids, metric='euclidean')
+    
+    # Minimize total distance to assign pairs
+    row_ind, col_ind = linear_sum_assignment(cost_matrix)
+    
+    # row_ind => new cluster index
+    # col_ind => corresponding old cluster index
+    return {new_idx: old_idx for new_idx, old_idx in zip(row_ind, col_ind)}
