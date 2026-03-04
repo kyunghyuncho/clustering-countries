@@ -137,13 +137,16 @@ tab1, tab2 = st.tabs(["🌎 Global Map", "📑 Cluster Inspector"])
 with tab1:
     st.header(f"Global Cluster Distribution ({selected_year})")
 
+    # Map colors permanently so that Cluster "0" is always the 1st color, "1" is the 2nd, etc.
+    color_map = {str(i): px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)] for i in range(15)}
+
     fig = px.choropleth(
         df_results,
         locations="economy", 
         color="Cluster",
         hover_name="Country Name",
         hover_data=selected_features,
-        color_discrete_sequence=px.colors.qualitative.Plotly,
+        color_discrete_map=color_map,
         projection="natural earth",
         title=f"{model_choice} Clustering (K={k_clusters}) for {selected_year}"
     )
