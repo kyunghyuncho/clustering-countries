@@ -88,41 +88,65 @@ with col3:
 
 st.divider()
 
-# Geospatial Visualization
-st.header("Global Cluster Distribution")
+tab1, tab2 = st.tabs(["🌎 Global Map", "📑 Cluster Inspector"])
 
-# Add Country Name to hover data
-hover_data_columns = ['Country Name'] + selected_features
+with tab1:
+    # Geospatial Visualization
+    st.header("Global Cluster Distribution")
 
-fig = px.choropleth(
-    df_results,
-    locations="economy", # ISO-3 Codes
-    color="Cluster",
-    hover_name="Country Name",
-    hover_data=selected_features,
-    color_discrete_sequence=px.colors.qualitative.Plotly,
-    projection="natural earth",
-    title=f"{model_choice} Clustering (K={k_clusters})"
-)
-fig.update_layout(height=600, margin={"r":0,"t":40,"l":0,"b":0})
-st.plotly_chart(fig, use_container_width=True)
+    # Add Country Name to hover data
+    hover_data_columns = ['Country Name'] + selected_features
 
+    fig = px.choropleth(
+        df_results,
+        locations="economy", # ISO-3 Codes
+        color="Cluster",
+        hover_name="Country Name",
+        hover_data=selected_features,
+        color_discrete_sequence=px.colors.qualitative.Plotly,
+        projection="natural earth",
+        title=f"{model_choice} Clustering (K={k_clusters})"
+    )
+    fig.update_layout(height=600, margin={"r":0,"t":40,"l":0,"b":0})
+    st.plotly_chart(fig, use_container_width=True)
 
-# Data & Centroid Explorer
-st.header("Centroid Explorer")
-with st.expander("View Cluster Centroids (Unscaled / Mean Values)"):
-    # Group by cluster and calculate mean of original (imputed, but not logged/scaled) values
+    # Data & Centroid Explorer
+    st.header("Centroid Explorer")
+    with st.expander("View Cluster Centroids (Unscaled / Mean Values)"):
+        # We log-transformed some features in imputation step, let's look at the raw un-transformed means per cluster
+        # To do this accurately, let's merge the labels back into df_raw and group by it
+        df_raw_with_labels = df_raw.copy()
+        
+        # Standardize index so we only map matching ones
+        common_idx = df_raw_with_labels.index.intersection(df_scaled.index)
+        df_raw_with_labels.loc[common_idx, 'Cluster'] = [str(lbl) for lbl in labels]
+        
+        # Calculate means
+        centroids = df_raw_with_labels.groupby('Cluster')[selected_features].mean()
+        
+        st.dataframe(centroids.style.highlight_max(axis=0, color='lightgreen').highlight_min(axis=0, color='lightcoral'))
+        st.markdown("*(Green indicates the highest value across clusters, Red indicates the lowest)*")
+
+with tab2:
+    st.header("Inspect Countries per Cluster")
+    st.markdown("Filter and inspect the exact nations assigned to each cluster, alongside their raw collected World Bank attributes.")
     
-    # We log-transformed some features in imputation step, let's look at the raw un-transformed means per cluster
-    # To do this accurately, let's merge the labels back into df_raw and group by it
-    df_raw_with_labels = df_raw.copy()
+    df_raw_with_labels_tab2 = df_raw.copy()
+    common_idx_tab2 = df_raw_with_labels_tab2.index.intersection(df_scaled.index)
+    df_raw_with_labels_tab2.loc[common_idx_tab2, 'Cluster'] = [str(lbl) for lbl in labels]
     
-    # Standardize index so we only map matching ones
-    common_idx = df_raw_with_labels.index.intersection(df_scaled.index)
-    df_raw_with_labels.loc[common_idx, 'Cluster'] = labels
+    # Drop countries that were filtered out naturally during data cleaning if any
+    df_raw_with_labels_tab2 = df_raw_with_labels_tab2.dropna(subset=['Cluster'])
     
-    # Calculate means
-    centroids = df_raw_with_labels.groupby('Cluster')[selected_features].mean()
+    cluster_options = ["All Clusters"] + sorted(list(df_raw_with_labels_tab2['Cluster'].unique()))
+    selected_cluster = st.selectbox("Select Cluster to Filter", cluster_options)
     
-    st.dataframe(centroids.style.highlight_max(axis=0, color='lightgreen').highlight_min(axis=0, color='lightcoral'))
-    st.markdown("*(Green indicates the highest value across clusters, Red indicates the lowest)*")
+    if selected_cluster == "All Clusters":
+        display_df = df_raw_with_labels_tab2.sort_values(by=['Cluster', 'Country Name'])
+    else:
+        display_df = df_raw_with_labels_tab2[df_raw_with_labels_tab2['Cluster'] == selected_cluster].sort_values(by=['Country Name'])
+        
+    st.dataframe(
+        display_df[['Cluster', 'Country Name'] + selected_features].set_index('Country Name'),
+        use_container_width=True
+    )
