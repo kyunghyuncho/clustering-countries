@@ -57,50 +57,74 @@ df_scaled_all, df_imputed_all = preprocess_data(df_raw, selected_features=select
 
 
 # -- Modeling (Longitudinal Alignment) --
-# To ensure cluster label stability (e.g. Cluster 1 remains conceptually similar over time),
-# we process the clustering chronologically from min_year to selected_year and align centroids.
+# To ensure cluster label stability (e.g. Cluster 1 remains conceptually similar over time)
+# AND allow real-time scrubbing on the Streamlit slider, we pre-compute and cache alignments 
+# across all years for a given configuration.
 
-previous_centroids = None
-final_labels = None
-final_sil_score = None
-final_aic = final_bic = None
+@st.cache_data(show_spinner="Computing longitudinal clusters across all years...")
+def compute_longitudinal_clusters(df_scaled, selected_feats, k, mod_choice, gmm_cov, min_yr, max_yr):
+    yearly_results = {}
+    previous_centroids = None
+    
+    for yr in range(min_yr, max_yr + 1):
+        df_yr_scaled = df_scaled[df_scaled['year'] == yr].sort_values('Country Name')
+        X = df_yr_scaled[selected_feats].values
+        
+        if len(X) == 0:
+            continue
+            
+        if mod_choice == "K-Means":
+            model, labels, sil_score = run_kmeans(X, n_clusters=k)
+            centroids = model.cluster_centers_
+            aic = bic = None
+        else:
+            model, labels, sil_score, aic, bic = run_gmm(X, n_components=k, covariance_type=gmm_cov)
+            centroids = model.means_
+            
+        if previous_centroids is not None:
+            # Align new centroids to the previous year's centroids using the Hungarian Algorithm
+            mapping = align_clusters(previous_centroids, centroids)
+            
+            # Apply mapping to current year labels
+            labels = np.array([mapping[l] for l in labels])
+            
+            # Reorder current centroids to match the old indexing structure for the next iteration
+            ordered_centroids = np.zeros_like(centroids)
+            for new_lbl, old_lbl in mapping.items():
+                ordered_centroids[old_lbl] = centroids[new_lbl]
+            centroids = ordered_centroids
+            
+        previous_centroids = centroids
+        yearly_results[yr] = {
+            'labels': labels,
+            'sil_score': sil_score,
+            'aic': aic,
+            'bic': bic
+        }
+        
+    return yearly_results
 
-for yr in range(min_year, selected_year + 1):
-    df_yr_scaled = df_scaled_all[df_scaled_all['year'] == yr].sort_values('Country Name')
-    X = df_yr_scaled[selected_features].values
-    
-    if len(X) == 0:
-        continue
-        
-    if model_choice == "K-Means":
-        model, labels, sil_score = run_kmeans(X, n_clusters=k_clusters)
-        centroids = model.cluster_centers_
-        aic = bic = None
-    else:
-        model, labels, sil_score, aic, bic = run_gmm(X, n_components=k_clusters, covariance_type=gmm_covariance)
-        centroids = model.means_
-        
-    if previous_centroids is not None:
-        # Align new centroids to the previous year's centroids using the Hungarian Algorithm
-        mapping = align_clusters(previous_centroids, centroids)
-        
-        # Apply mapping to current year labels
-        labels = np.array([mapping[l] for l in labels])
-        
-        # Reorder current centroids to match the old indexing structure for the next iteration
-        ordered_centroids = np.zeros_like(centroids)
-        for new_lbl, old_lbl in mapping.items():
-            ordered_centroids[old_lbl] = centroids[new_lbl]
-        centroids = ordered_centroids
-        
-    previous_centroids = centroids
-    
-    # Store the results for the year closest to the user's selection (terminal year of this loop)
-    if yr == selected_year:
-        final_labels = labels
-        final_sil_score = sil_score
-        final_aic = aic
-        final_bic = bic
+# Execute / retrieve the cached computing pipeline
+aligned_results = compute_longitudinal_clusters(
+    df_scaled=df_scaled_all, 
+    selected_feats=selected_features, 
+    k=k_clusters, 
+    mod_choice=model_choice, 
+    gmm_cov=gmm_covariance, 
+    min_yr=min_year, 
+    max_yr=max_year
+)
+
+# Extract specific active year results
+if selected_year in aligned_results:
+    active_res = aligned_results[selected_year]
+    final_labels = active_res['labels']
+    final_sil_score = active_res['sil_score']
+    final_aic = active_res['aic']
+    final_bic = active_res['bic']
+else:
+    st.error(f"No clustered data available for {selected_year}.")
+    st.stop()
 
 # Fetch the raw/imputed dataframe slice purely for the selected year and append finalized labels
 df_results = df_imputed_all[df_imputed_all['year'] == selected_year].sort_values('Country Name').copy()
