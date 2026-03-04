@@ -130,6 +130,15 @@ else:
 df_results = df_imputed_all[df_imputed_all['year'] == selected_year].sort_values('Country Name').copy()
 df_results['Cluster'] = [str(lbl) for lbl in final_labels]
 
+# Construct longitudinal dataframe for Plotly animation
+all_years_dfs = []
+for yr, res in aligned_results.items():
+    df_yr_slice = df_imputed_all[df_imputed_all['year'] == yr].sort_values('Country Name').copy()
+    df_yr_slice['Cluster'] = [str(lbl) for lbl in res['labels']]
+    all_years_dfs.append(df_yr_slice)
+
+df_anim = pd.concat(all_years_dfs, ignore_index=True).sort_values('year')
+
 
 # -- Main Dashboard --
 
@@ -159,20 +168,21 @@ st.divider()
 tab1, tab2 = st.tabs(["🌎 Global Map", "📑 Cluster Inspector"])
 
 with tab1:
-    st.header(f"Global Cluster Distribution ({selected_year})")
+    st.header("Global Cluster Distribution Evolution")
 
     # Map colors permanently so that Cluster "0" is always the 1st color, "1" is the 2nd, etc.
     color_map = {str(i): px.colors.qualitative.Plotly[i % len(px.colors.qualitative.Plotly)] for i in range(15)}
 
     fig = px.choropleth(
-        df_results,
+        df_anim,
         locations="economy", 
         color="Cluster",
         hover_name="Country Name",
         hover_data=selected_features,
         color_discrete_map=color_map,
+        animation_frame="year",
         projection="natural earth",
-        title=f"{model_choice} Clustering (K={k_clusters}) for {selected_year}"
+        title=f"{model_choice} Clustering (K={k_clusters}) Longitudinal Evolution"
     )
     fig.update_layout(height=600, margin={"r":0,"t":40,"l":0,"b":0})
     st.plotly_chart(fig, use_container_width=True)
